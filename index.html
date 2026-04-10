@@ -136,16 +136,20 @@
         container.innerHTML = '';
         
         filtered.slice(0, 12).forEach((c, i) => {
-            const fileName = `${valNamesEn[c.v]}_of_${suitNamesEn[c.s]}`;
-            const imgUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/English_pattern_${fileName}.svg`;
+            // NOWE ŹRÓDŁO GRAFIK - Stabilne i szybkie
+            // Używamy formatu: https://deckofcardsapi.com/static/img/AS.png (np. Ace of Spades)
+            // Mapowanie: S->S, C->C, H->H, D->D. Wartość 10 -> 0
+            let cardCode = (c.v === '10' ? '0' : c.v) + c.s;
+            const imgUrl = `https://deckofcardsapi.com/static/img/${cardCode}.png`;
             
             container.innerHTML += `
                 <div class="card-row">
                     <div class="rank-num">${i+1}</div>
-                    <img class="card-img" src="${imgUrl}" alt="${c.v}${c.s}">
+                    <img class="card-img" src="${imgUrl}" alt="${c.v}${c.s}" 
+                         style="background: white; border: 1px solid #000;">
                     <div>
-                        <div style="font-weight:bold">${valNamesPl[c.v]} ${suitNamesPl[c.s]}</div>
-                        <div style="font-size:10px; color: #888">Szansa: ${c.score}%</div>
+                        <div style="font-weight:bold; color: white;">${valNamesPl[c.v]} ${suitNamesPl[c.s]}</div>
+                        <div style="font-size:10px; color: #aaa">Szansa: ${c.score}%</div>
                     </div>
                 </div>`;
         });
