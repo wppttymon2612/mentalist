@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --panel-bg: #1a1a1a;
+            --accent-color: #ffd700;
+            --text-color: #ffffff;
+            --red: #ff4444;
+            --black: #888888;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0; padding: 10px;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        /* Sekcja przycisków */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 10px; }
+
+        .btn {
+            background: #333; border: none; border-radius: 8px; color: white;
+            padding: 12px 5px; font-weight: bold; cursor: pointer; text-transform: uppercase;
+            font-size: 11px; transition: 0.2s;
+        }
+
+        .btn.active { background: var(--accent-color); color: black; }
+        .btn-symbol { font-size: 20px; padding: 5px; }
+        
+        /* Lista kart */
+        #ranking {
+            flex: 1; background: var(--panel-bg); border-radius: 12px;
+            overflow-y: auto; padding: 10px; border: 1px solid #333;
+        }
+
+        .card-row {
+            display: flex; align-items: center; background: #252525;
+            margin-bottom: 8px; padding: 10px; border-radius: 10px;
+        }
+
+        .card-img {
+            width: 45px; height: 65px; object-fit: contain;
+            background: white; border-radius: 4px; margin: 0 15px;
+        }
+
+        .rank-num { font-size: 18px; font-weight: bold; color: var(--accent-color); width: 25px; }
+        .reset-btn { background: #600; width: 100%; margin-top: 10px; padding: 15px; border-radius: 10px; }
+
+        .suit-red { color: var(--red); }
+        .suit-black { color: #ccc; }
+    </style>
+</head>
+<body>
+
+    <div class="grid">
+        <button id="f-red" class="btn" onclick="setFilter('color', 'red', 'f-red')">Czerwone</button>
+        <button id="f-black" class="btn" onclick="setFilter('color', 'black', 'f-black')">Czarne</button>
+    </div>
+
+    <div class="grid-4">
+        <button id="s-H" class="btn btn-symbol suit-red" onclick="setFilter('suit', 'H', 's-H')">♥</button>
+        <button id="s-D" class="btn btn-symbol suit-red" onclick="setFilter('suit', 'D', 's-D')">♦</button>
+        <button id="s-S" class="btn btn-symbol suit-black" onclick="setFilter('suit', 'S', 's-S')">♠</button>
+        <button id="s-C" class="btn btn-symbol suit-black" onclick="setFilter('suit', 'C', 's-C')">♣</button>
+    </div>
+
+    <div class="grid">
+        <button id="t-fig" class="btn" onclick="setFilter('type', 'fig', 't-fig')">Figury</button>
+        <button id="t-num" class="btn" onclick="setFilter('type', 'num', 't-num')">Liczby</button>
+    </div>
+
+    <div id="ranking"></div>
+
+    <button class="btn reset-btn" onclick="resetAll()">ZRESETUJ WSZYSTKO</button>
+
+<script>
+    // Polskie nazwy dla interfejsu
+    const suitNamesPl = { 'H': 'Kier', 'D': 'Karo', 'S': 'Pik', 'C': 'Trefl' };
+    const valNamesPl = { 'A': 'As', 'K': 'Król', 'Q': 'Dama', 'J': 'Walet', '10': '10', '9': '9', '8': '8', '7': '7', '6': '6', '5': '5', '4': '4', '3': '3', '2': '2' };
+    
+    // Nazwy do plików graficznych (muszą zostać po angielsku, żeby linki działały)
+    const suitNamesEn = { 'H': 'Hearts', 'D': 'Diamonds', 'S': 'Spades', 'C': 'Clubs' };
+    const valNamesEn = { 'A': 'Ace', 'K': 'King', 'Q': 'Queen', 'J': 'Jack', '10': '10', '9': '9', '8': '8', '7': '7', '6': '6', '5': '5', '4': '4', '3': '3', '2': '2' };
+
+    const allCards = [
+        { v: 'A', s: 'S', type: 'fig', score: 150 }, { v: 'Q', s: 'H', type: 'fig', score: 145 },
+        { v: '7', s: 'H', type: 'num', score: 140 }, { v: 'A', s: 'H', type: 'fig', score: 135 },
+        { v: '8', s: 'C', type: 'num', score: 120 }, { v: 'K', s: 'S', type: 'fig', score: 115 },
+        { v: '4', s: 'D', type: 'num', score: 110 }, { v: 'K', s: 'H', type: 'fig', score: 105 },
+        { v: 'J', s: 'C', type: 'fig', score: 100 }, { v: '10', s: 'D', type: 'num', score: 90 }
+    ];
+
+    // Dynamiczne dopełnienie reszty talii
+    ['S','C','H','D'].forEach(s => {
+        ['A','K','Q','J','10','9','8','7','6','5','4','3','2'].forEach(v => {
+            if(!allCards.find(c => c.v == v && c.s == s)) {
+                allCards.push({ v, s, type: isNaN(v) && v !== '10' ? 'fig' : 'num', score: 10 });
+            }
+        });
+    });
+
+    let filters = { color: null, suit: null, type: null };
+
+    function setFilter(key, val, btnId) {
+        if (filters[key] === val) filters[key] = null;
+        else {
+            filters[key] = val;
+            if(key === 'color') filters.suit = null;
+            if(key === 'suit') filters.color = null;
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+        if(filters.color) document.getElementById('f-'+filters.color).classList.add('active');
+        if(filters.suit) document.getElementById('s-'+filters.suit).classList.add('active');
+        if(filters.type) document.getElementById('t-'+filters.type).classList.add('active');
+
+        let filtered = allCards.filter(c => {
+            let mColor = !filters.color || (filters.color === 'red' ? (c.s === 'H' || c.s === 'D') : (c.s === 'S' || c.s === 'C'));
+            let mSuit = !filters.suit || c.s === filters.suit;
+            let mType = !filters.type || c.type === filters.type;
+            return mColor && mSuit && mType;
+        });
+
+        filtered.sort((a, b) => b.score - a.score);
+        const container = document.getElementById('ranking');
+        container.innerHTML = '';
+        
+        filtered.slice(0, 12).forEach((c, i) => {
+            const fileName = `${valNamesEn[c.v]}_of_${suitNamesEn[c.s]}`;
+            const imgUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/English_pattern_${fileName}.svg`;
+            
+            container.innerHTML += `
+                <div class="card-row">
+                    <div class="rank-num">${i+1}</div>
+                    <img class="card-img" src="${imgUrl}" alt="${c.v}${c.s}">
+                    <div>
+                        <div style="font-weight:bold">${valNamesPl[c.v]} ${suitNamesPl[c.s]}</div>
+                        <div style="font-size:10px; color: #888">Szansa: ${c.score}%</div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    function resetAll() {
+        filters = { color: null, suit: null, type: null };
+        updateUI();
+    }
+    updateUI();
+</script>
+</body>
+</html>
